@@ -328,7 +328,18 @@ def main():
                         'less available disk space and is faster.')
     parser.add_argument('--ignore-cache', action='store_true',
                         help='Ignore any previously cached files.')
+    parser.add_argument('--osx-build', action='store',
+                        help='Download build that matches this value.')
+    parser.add_argument('--osx-version', action='store',
+                        help='Download version that matches this value.')
     args = parser.parse_args()
+
+    if args.osx_build:
+        if args.osx_version:
+            print('Ignoring --osx-version `{}` since --osx-build `{}` passed.'.format(
+                args.osx_version, args.osx_build))
+            args.osx_version = None
+            sys.exit(1)
 
     su_catalog_url = get_default_catalog()
     if not su_catalog_url:
@@ -359,17 +370,33 @@ def main():
             product_info[product_id]['PostDate'].strftime('%Y-%m-%d'),
             product_info[product_id]['title']
         ))
+    match_field = None
+    match_value = None
+    if args.osx_build:
+        match_field = 'BUILD'
+        match_value = args.osx_build
+    elif args.osx_version:
+        match_field = 'version'
+        match_value = args.osx_version
 
-    answer = input(
-        '\nChoose a product to download (1-%s): ' % len(product_info))
-    try:
-        index = int(answer) - 1
-        if index < 0:
-            raise ValueError
-        product_id = list(product_info.keys())[index]
-    except (ValueError, IndexError):
-        print('Exiting.')
-        exit(0)
+    if match_field:
+        for index, product_id in enumerate(product_info):
+            if product_info[product_id][match_field] == match_value:
+                break
+            if index == len(product_info) - 1:
+                print('Error, did not find "%s" matching "%s"' % (match_field, match_value))
+                sys.exit(1)
+    else:
+        answer = input(
+            '\nChoose a product to download (1-%s): ' % len(product_info))
+        try:
+            index = int(answer) - 1
+            if index < 0:
+                raise ValueError
+            product_id = list(product_info.keys())[index]
+        except (ValueError, IndexError):
+            print('Exiting.')
+            exit(0)
 
     # download all the packages for the selected product
     replicate_product(
